@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
 func isURL(candidate string) bool {
@@ -27,8 +28,6 @@ func extractHost(rawurl string) string {
 	}
 	return host
 }
-
-
 
 func CDNFilter() func(string) bool {
 	client, err := cdncheck.NewWithCache()
@@ -59,7 +58,6 @@ func CDNFilter() func(string) bool {
 	}
 }
 
-
 func resolveName(name string) []net.IP {
 	validIPs := []net.IP{}
 	ips, err := net.LookupHost(name)
@@ -80,10 +78,27 @@ func resolveName(name string) []net.IP {
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	filter := CDNFilter()
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !filter(line) {
-			fmt.Println(line)
-		}
+
+	var wg sync.WaitGroup
+	lines := make(chan string)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			for line := range lines {
+				if !filter(line) {
+					fmt.Println(line)
+				}
+			}
+		}()
 	}
+
+	for scanner.Scan() {
+		lines <- scanner.Text()
+	}
+
+	close(lines)
+	wg.Wait()
 }
