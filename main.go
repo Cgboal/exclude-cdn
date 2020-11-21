@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"github.com/projectdiscovery/dnsx/libs/dnsx"
 )
 
 func isURL(candidate string) bool {
@@ -34,6 +35,7 @@ func CDNFilter() func(string) bool {
 	if err != nil {
 		log.Fatal(err)
 	}
+	resolveName := Resolver()
 
 	return func(line string) bool {
 		host := line
@@ -58,21 +60,27 @@ func CDNFilter() func(string) bool {
 	}
 }
 
-func resolveName(name string) []net.IP {
-	validIPs := []net.IP{}
-	ips, err := net.LookupHost(name)
+func Resolver() func(string) []net.IP {
+	resolver, err := dnsx.New(dnsx.DefaultOptions)
 	if err != nil {
-		return validIPs
+		log.Fatal(err)
 	}
 
-	for _, ip := range ips {
-		parsedIP := net.ParseIP(ip)
-		if parsedIP.To4() == nil {
-			continue
+	return func (name string) []net.IP {
+		validIPs := []net.IP{}
+		ips, err := resolver.Lookup(name)
+		if err != nil {
+			return validIPs
 		}
-		validIPs = append(validIPs, parsedIP)
+		for _, ip := range ips {
+			parsedIP := net.ParseIP(ip)
+			if parsedIP.To4() == nil {
+				continue
+			}
+			validIPs = append(validIPs, parsedIP)
+		}
+		return validIPs
 	}
-	return validIPs
 }
 
 func main() {
