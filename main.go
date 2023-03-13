@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/projectdiscovery/cdncheck"
+	"github.com/projectdiscovery/dnsx/libs/dnsx"
 	"log"
 	"net"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
-	"github.com/projectdiscovery/dnsx/libs/dnsx"
 )
 
 func isURL(candidate string) bool {
@@ -51,7 +51,7 @@ func CDNFilter() func(string) bool {
 			ips = append(ips, resolveName(host)...)
 		}
 		for _, ip := range ips {
-			found, err := client.Check(ip)
+			found, _, err := client.Check(ip)
 			if found && err == nil {
 				return true
 			}
@@ -66,7 +66,7 @@ func Resolver() func(string) []net.IP {
 		log.Fatal(err)
 	}
 
-	return func (name string) []net.IP {
+	return func(name string) []net.IP {
 		validIPs := []net.IP{}
 		ips, err := resolver.Lookup(name)
 		if err != nil {
